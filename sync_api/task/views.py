@@ -76,7 +76,96 @@ def get_data(request):
     '''
 
 
-# XXX PHASE 2
+# # XXX PHASE 2
+# def get_data(request):
+#     if request.method != 'POST':
+#         return JsonResponse({"error":"POST Required"},status = 405)
+#     get_url = request.POST.get('API','')
+#     if not get_url:
+#         return JsonResponse({"error: Incorrect URL"},status = 405)
+#     pending_task = Task.objects.create(
+#         url = get_url,
+#         status = Task.STATUS_PENDING,
+        
+#     )
+#     if pending_task.status == 'PENDING':
+#         # print({
+#         #     'id':pending_task.id,
+#         #     'status':pending_task.status
+#         # }
+#         return JsonResponse({
+#             'id':pending_task.id,
+#             'status':pending_task.status
+#         }
+#     )
+#     data = scrape_url(get_url)
+#     if not data:
+
+#         pending_task.status = Task.STATUS_FAILED
+#         pending_task.save()
+#     else:
+        
+#         pending_task.status = Task.STATUS_COMPLETED
+#         pending_task.save()
+#         return JsonResponse(
+#             {
+#             'id':pending_task.id,
+#             'status':pending_task.status,
+#             'result':pending_task.result
+#             },status = 202
+#         )
+'''
+Task object (5271fa0d-68a9-4f50-8f44-2f5e23596369) 
+Task object (07992ab1-c638-4b76-8ab1-1f6abae25958) Task object 
+(75852ef5-3d12-4663-80c9-b1a0f0cde4ba)
+ Task object (4c7b42a7-c80c-4f0d-881a-5704b366a2ad)
+   Task object (a07568e6-5134-4414-9526-3a38844d98e8)
+'''
+
+
+# # XXX PHASE 2.1
+# def get_data(request):
+#     if request.method != 'POST':
+#         return JsonResponse({"error":"POST Required"},status = 405)
+#     get_url = request.POST.get('API','')
+#     if not get_url:
+#         return JsonResponse({"error: Incorrect URL"},status = 405)
+#     pending_task = Task.objects.create(
+#         url = get_url,
+#         status = Task.STATUS_PENDING,
+        
+#     )
+#     if pending_task.status == 'PENDING':
+#         # print({
+#         #     'id':pending_task.id,
+#         #     'status':pending_task.status
+#         # }
+#         return JsonResponse({
+#             'id':pending_task.id,
+#             'status':pending_task.status,
+#             'url':pending_task.url
+#         }
+#     )
+#     data = scrape_url(get_url)
+#     if not data:
+
+#         pending_task.status = Task.STATUS_FAILED
+#         pending_task.save()
+#     else:
+#         # pending_task.result
+#         pending_task.status = Task.STATUS_COMPLETED
+#         pending_task.save()
+#         return JsonResponse(
+#             {
+#             'id':pending_task.id,
+#             'status':pending_task.status,
+#             'result':pending_task.result
+#             },status = 202
+#         )
+
+# celery worker working hard
+
+# XXX PHASE 3
 def get_data(request):
     if request.method != 'POST':
         return JsonResponse({"error":"POST Required"},status = 405)
@@ -88,6 +177,8 @@ def get_data(request):
         status = Task.STATUS_PENDING,
         
     )
+    print(pending_task.url)
+    scrape_url.delay(str(pending_task.url))
     if pending_task.status == 'PENDING':
         # print({
         #     'id':pending_task.id,
@@ -95,32 +186,28 @@ def get_data(request):
         # }
         return JsonResponse({
             'id':pending_task.id,
-            'status':pending_task.status
+            'status':pending_task.status,
+            'url':pending_task.url
         }
     )
-    data = scrape_url(get_url)
-    if not data:
+    # data = scrape_url(get_url)
+    # if not data:
 
-        pending_task.status = Task.STATUS_FAILED
-        pending_task.save()
-    else:
-        
-        pending_task.status = Task.STATUS_COMPLETED
-        pending_task.save()
-        return JsonResponse(
-            {
-            'id':pending_task.id,
-            'status':pending_task.status,
-            'result':pending_task.result
-            },status = 202
-        )
-'''
-Task object (5271fa0d-68a9-4f50-8f44-2f5e23596369) 
-Task object (07992ab1-c638-4b76-8ab1-1f6abae25958) Task object 
-(75852ef5-3d12-4663-80c9-b1a0f0cde4ba)
- Task object (4c7b42a7-c80c-4f0d-881a-5704b366a2ad)
-   Task object (a07568e6-5134-4414-9526-3a38844d98e8)
-'''
+    #     pending_task.status = Task.STATUS_FAILED
+    #     pending_task.save()
+    # else:
+    #     # pending_task.result
+    #     pending_task.status = Task.STATUS_COMPLETED
+    #     pending_task.save()
+    #     return JsonResponse(
+    #         {
+    #         'id':pending_task.id,
+    #         'status':pending_task.status,
+    #         'result':pending_task.result
+    #         },status = 202
+    #     )
+
+
 def user_task(request,pk):
     get_task_details = Task.objects.get(id = pk)
     # return render(request, 'task/user_data.html',{'get_task_details':get_task_details})

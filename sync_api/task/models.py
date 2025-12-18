@@ -4,9 +4,10 @@ import uuid
 
 class Task(models.Model):
     STATUS_PENDING = 'PENDING'
+    STATUS_RUNNING = 'RUNNING'
     STATUS_COMPLETED = 'COMPLETED'
     STATUS_FAILED = 'FAILED'
-    STATUS_CHOICES = ((STATUS_PENDING,'Pending'),(STATUS_COMPLETED,'Completed'),(STATUS_FAILED,'Failed'))
+    STATUS_CHOICES = ((STATUS_PENDING,'Pending'),(STATUS_RUNNING,'RUNNING'),(STATUS_COMPLETED,'Completed'),(STATUS_FAILED,'Failed'))
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # id =  models.CharField(primary_key=True,max_length=50, null=False)

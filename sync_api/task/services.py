@@ -2,6 +2,7 @@ import requests
 import uuid
 import datetime
 from bs4 import BeautifulSoup
+from celery import shared_task
 # # url = 'https://jsonplaceholder.typicode.com/posts'
 # url = 'https://example.com/'
 # response = requests.get(url, timeout=10)
@@ -23,7 +24,7 @@ from bs4 import BeautifulSoup
 
 # print(f'COUNT OF THE LINKS ->{links_count} ')
 
-
+@shared_task
 def scrape_url(url):
     response = requests.get(url, timeout=10)
     response.raise_for_status()
