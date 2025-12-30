@@ -3,6 +3,9 @@ import uuid
 import datetime
 from bs4 import BeautifulSoup
 from celery import shared_task
+from .models import Task
+import time    
+from django.http import HttpResponseBadRequest, JsonResponse
 # # url = 'https://jsonplaceholder.typicode.com/posts'
 # url = 'https://example.com/'
 # response = requests.get(url, timeout=10)
@@ -24,26 +27,60 @@ from celery import shared_task
 
 # print(f'COUNT OF THE LINKS ->{links_count} ')
 
-@shared_task
-def scrape_url(url):
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    link_counts = len(soup.find_all("a"))
-    title = soup.title.string if soup.title else None
-    get_id = uuid.uuid4()
+# @shared_task
+@shared_task(acks_late=True, max_retries=3, default_retry_delay=10)
+def scrape_url(pending_task):
+    task = Task.objects.get(pk = pending_task)
+    print(f'1- Status of task right now {task.status}')
+    if task.status != 'PENDING':
+        return
+    task.status = task.STATUS_RUNNING
+    
+    task.save()
+    print(f'2 - Task status right now {task.status}')
+    try:
+        task_url = task.url
+        print('sleeping for a few secs')
+        time.sleep(5)
+        print('WOKE UP...HELL YEAH')
+        response = requests.get(task_url, timeout=10)
 
-    return {
-        # 'id':str(get_id),
-        # 'url':url,
-        'status':response.status_code,
-        'result': {
-                   "title" : title,
-                   "link_counts":link_counts
-                  },
-        # 'error_field': response.raise_for_status() if response.raise_for_status() else None,
-        # 'date_created': datetime.datetime.now()
-    }
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        link_counts = len(soup.find_all("a"))
+        title = soup.title.string if soup.title else None
+        get_id = uuid.uuid4()
+
+        task.result = {
+                     "title" : title,
+                     "link_counts":link_counts
+                     }
+                   
+        task.status = task.STATUS_COMPLETED
+        print(f'task status NOW {task.status} with {task.result}')
+        task.save()
+        # return {
+        #     # 'id':str(get_id),
+        #     # 'url':url,
+        #     'status':response.status_code,
+        #     'result': {
+        #             "title" : title,
+        #             "link_counts":link_counts
+        #             },
+        #     # 'error_field': response.raise_for_status() if response.raise_for_status() else None,
+        #     # 'date_created': datetime.datetime.now()
+        # }
+    except ConnectionError as e:
+        task.error_field = str(e)
+        task.status = task.STATUS_FAILED
+        task.save
+        print(f'task failed with mehh{task.status}')
+        raise self.retry(exc=e)
+        # return JsonResponse(
+        #         {"status": "FAILED", "error": str(e)},
+        #         status=500
+        #     )
+    
 
 '''
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

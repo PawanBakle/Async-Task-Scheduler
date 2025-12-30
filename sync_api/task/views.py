@@ -165,6 +165,7 @@ Task object (07992ab1-c638-4b76-8ab1-1f6abae25958) Task object
 
 # celery worker working hard
 
+'''
 # XXX PHASE 3
 def get_data(request):
     if request.method != 'POST':
@@ -207,6 +208,33 @@ def get_data(request):
     #         },status = 202
     #     )
 
+'''
+
+# XXX PHASE 4
+def get_data(request):
+    if request.method != 'POST':
+        return JsonResponse({"error":"POST Required"},status = 405)
+    get_url = request.POST.get('API','')
+    if not get_url:
+        return JsonResponse({"error: Incorrect URL"},status = 405)
+    pending_task = Task.objects.create(
+        url = get_url,
+        status = Task.STATUS_PENDING,
+        
+    )
+    print(pending_task)
+    scrape_url.delay(pending_task.pk)
+    if pending_task.status == 'PENDING':
+        # print({
+        #     'id':pending_task.id,
+        #     'status':pending_task.status
+        # }
+        return JsonResponse({
+            'id':pending_task.pk,
+            'status':pending_task.status,
+            'url':pending_task.url
+        }
+    )
 
 def user_task(request,pk):
     get_task_details = Task.objects.get(id = pk)
