@@ -133,6 +133,55 @@ Gunicorn Master (Process)
 - Concurrency and data consistency are guaranteed by the DB and broker, not by shared memory between workers.
 ```
 
+
+# Phase 6 — Task Idempotency and Reconciliation
+
+## Goal
+Ensure safe re-running of orphaned or partially executed tasks without Celery tricks or automatic retries. Focus on correctness.
+
+## Key Changes / Learnings
+
+1. **Idempotency**
+   - Tasks can be safely re-run.
+   - Achieved by using:
+     - `select_for_update()` — locks the DB row for the task during execution.
+     - `transaction.atomic()` — ensures all DB updates happen atomically.
+   - Prevents race conditions when multiple workers attempt to pick the same task.
+
+2. **Heartbeat**
+   - Each task updates `last_heartbeat` periodically.
+   - Used to detect orphaned tasks that are stuck in `RUNNING`.
+
+3. **Reconciliation Command**
+   - Custom Django management command runs continuously:
+     - Queries tasks with `status = RUNNING` and `last_heartbeat < threshold`.
+     - Resets them to `PENDING`.
+   - Ensures orphaned tasks can be retried safely.
+
+4. **Celery Settings**
+   - `acks_late=True` ensures tasks are acknowledged only after completion.
+   - `max_retries` and `default_retry_delay` added to handle temporary failures.
+   - Redis broker holds task messages; Celery workers consume tasks one at a time.
+
+5. **Task Flow**
+
+6. **Race Conditions & Why**
+- Without row locking, multiple workers can pick the same task → duplicate work.
+- Without transactions, partially completed tasks can leave DB in inconsistent state.
+- select_for_update + atomic = safe guard against concurrency issues.
+
+7. **Observation**
+- Killing a worker mid-task demonstrates:
+  - Tasks may remain `RUNNING` in DB (orphaned).
+  - `reconcile_tasks` successfully detects and resets them.
+  - Heartbeat timestamp is critical to detect inactivity.
+
+## Takeaways
+- Workers are stateless; DB is source of truth.
+- Redis is just a broker for task queuing.
+- Reconciliation + idempotency ensures correctness in case of worker crashes.
+- select_for_update and atomic transactions are essential to prevent race conditions and ensure safe re-execution.
+
 ---
 
 
