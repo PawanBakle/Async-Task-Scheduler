@@ -1,5 +1,6 @@
 from django.db import models
 import uuid
+from django.utils import timezone
 # Create your models here.
 
 class Task(models.Model):
@@ -16,3 +17,28 @@ class Task(models.Model):
     result = models.JSONField(null=True, blank=True)
     error_field = models.TextField(null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
+    last_heartbeat = models.DateTimeField(null=True,blank=True)
+    retry_count = models.IntegerField(default = 0)
+    MAX_RETRIES = 3
+
+    def mark_pending(self):
+        self.status = Task.STATUS_PENDING
+        self.save()
+    def mark_running(self):
+        if self.status != Task.STATUS_PENDING:
+            raise ValueError("Invalid Transition")
+        self.status = Task.STATUS_RUNNING
+        self.last_heartbeat = timezone.now()
+        self.save()
+    def mark_completed(self):
+        if self.status != Task.STATUS_RUNNING:
+            raise ValueError()
+        self.status = Task.STATUS_COMPLETED
+        self.last_heartbeat = timezone.now()
+        self.save()
+    def mark_failed(self):
+        if self.status != Task.STATUS_RUNNING or self.status != Task.STATUS_PENDING:
+            raise ValueError()
+        self.status = Task.STATUS_PENDING
+        self.last_heartbeat = timezone.now()
+        self.save()

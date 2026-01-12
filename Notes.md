@@ -176,11 +176,31 @@ Ensure safe re-running of orphaned or partially executed tasks without Celery tr
   - `reconcile_tasks` successfully detects and resets them.
   - Heartbeat timestamp is critical to detect inactivity.
 
+
+
+### Reads
+- TASK retries
+- Idempotent TASKS
+- 
+
 ## Takeaways
 - Workers are stateless; DB is source of truth.
 - Redis is just a broker for task queuing.
 - Reconciliation + idempotency ensures correctness in case of worker crashes.
 - select_for_update and atomic transactions are essential to prevent race conditions and ensure safe re-execution.
+
+## Phase 6 — Correctness Under Concurrency
+
+- Database is the single source of truth for task state and ownership.
+- Celery is treated as an execution mechanism, not a state authority.
+- Tasks transition through explicit states: PENDING → RUNNING → COMPLETED / FAILED.
+- `select_for_update` + short transactions are used only for acquisition and finalization.
+- Long-running I/O is executed outside DB locks.
+- Heartbeats are used to detect liveness, not completion.
+- A reconciler detects orphaned RUNNING tasks using heartbeat timeouts.
+- Optimistic Concurrency Control (OCC) is used during completion to verify ownership.
+- Duplicate execution is tolerated, but duplicate commits are prevented.
+
 
 ---
 
