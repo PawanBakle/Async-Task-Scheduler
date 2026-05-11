@@ -11,8 +11,10 @@ class Task(models.Model):
     STATUS_CHOICES = ((STATUS_PENDING,'Pending'),(STATUS_RUNNING,'RUNNING'),(STATUS_COMPLETED,'Completed'),(STATUS_FAILED,'Failed'))
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    idempotency_key = models.CharField(max_length=255, unique=True, null=True, blank=True)
     # id =  models.CharField(primary_key=True,max_length=50, null=False)
     url = models.URLField()
+    version = models.IntegerField(default=0)
     status = models.CharField(max_length=25,choices = STATUS_CHOICES)
     result = models.JSONField(null=True, blank=True)
     error_field = models.TextField(null=True, blank=True)
@@ -37,8 +39,47 @@ class Task(models.Model):
         self.last_heartbeat = timezone.now()
         self.save()
     def mark_failed(self):
-        if self.status != Task.STATUS_RUNNING or self.status != Task.STATUS_PENDING:
-            raise ValueError()
-        self.status = Task.STATUS_PENDING
+        if self.status not in [self.STATUS_RUNNING, self.STATUS_PENDING]:
+            raise ValueError("Can only mark RUNNING or PENDING tasks as FAILED")
+        self.status = self.STATUS_FAILED
         self.last_heartbeat = timezone.now()
         self.save()
+
+    def transition(self, from_state, to_state, expected_version=None):
+        """
+        Atomic transition with optional OCC version check.
+        """
+        qs = Task.objects.filter(pk=self.pk, status=from_state)
+        if expected_version is not None:
+            qs = qs.filter(version=expected_version)
+        
+        rows = qs.update(
+            status=to_state,
+            last_heartbeat=timezone.now(),
+            version=models.F('version') + 1  # increment version
+        )
+        
+        if rows == 0:
+            raise RuntimeError("Illegal transition or stale version")
+        
+        self.status = to_state
+        self.version += 1
+        return rows
+    # def transition(self, from_state, to_state):
+    #     rows = Task.objects.filter(
+    #         pk=self.pk,
+    #         status=from_state
+    #     ).update(
+    #         status=to_state,
+    #         last_heartbeat=timezone.now()
+    #     )
+
+    #     if rows == 0:
+    #         raise RuntimeError(
+    #             f"Illegal or stolen transition {from_state} → {to_state}"
+    #         )
+
+    #     self.status = to_state
+    #     return rows
+
+

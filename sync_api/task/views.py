@@ -1,12 +1,22 @@
 from django.shortcuts import render
 import requests
 import uuid
+import hashlib
 import datetime
 from django.http import HttpResponseBadRequest, JsonResponse
+from django.utils import timezone
 from .services import scrape_url
 from .models import Task
 from django.forms.models import model_to_dict
+
+
 # Create your views here.
+
+# def home_page(request):
+#     return render(request, 'task/home_page.html')
+def home_page(request):
+    return redirect('show_tasks')  # Just redirect to dashboard
+
 '''
 def get_data(request):
     get_id = uuid.uuid4()
@@ -211,30 +221,71 @@ def get_data(request):
 '''
 
 # XXX PHASE 4
+# def get_data(request):
+#     if request.method != 'POST':
+#         return JsonResponse({"error":"POST Required"},status = 405)
+#     get_url = request.POST.get('API','')
+#     if not get_url:
+#         return JsonResponse({"error: Incorrect URL"},status = 405)
+#     pending_task = Task.objects.create(
+#         url = get_url,
+#         status = Task.STATUS_PENDING,
+#     )
+#     print(pending_task)
+#     scrape_url.delay(pending_task.pk)
+#     if pending_task.status == 'PENDING':
+#         # print({
+#         #     'id':pending_task.id,
+#         #     'status':pending_task.status
+#         # }
+#         return JsonResponse({
+#             'id':pending_task.pk,
+#             'status':pending_task.status,
+#             'url':pending_task.url
+#         }
+#     )
+from django.shortcuts import redirect
+from django.contrib import messages
+
 def get_data(request):
     if request.method != 'POST':
-        return JsonResponse({"error":"POST Required"},status = 405)
+        return JsonResponse({"error":"POST Required"},status=405)
+    
     get_url = request.POST.get('API','')
     if not get_url:
-        return JsonResponse({"error: Incorrect URL"},status = 405)
-    pending_task = Task.objects.create(
-        url = get_url,
-        status = Task.STATUS_PENDING,
-        
-    )
-    print(pending_task)
-    scrape_url.delay(pending_task.pk)
-    if pending_task.status == 'PENDING':
-        # print({
-        #     'id':pending_task.id,
-        #     'status':pending_task.status
-        # }
+        messages.error(request, "Please provide a valid URL")
+        return redirect('show_tasks')
+    minute_bucket = timezone.now().replace(second=0, microsecond=0)
+    key_string = f"{get_url}:{minute_bucket.isoformat()}"
+    idempotency_key = hashlib.sha256(key_string.encode()).hexdigest()
+    
+    # Check for existing task with same key
+    existing_task = Task.objects.filter(idempotency_key=idempotency_key).first()
+    if existing_task:
+        # Return existing task instead of creating new one
         return JsonResponse({
-            'id':pending_task.pk,
-            'status':pending_task.status,
-            'url':pending_task.url
-        }
+            'id': existing_task.pk,
+            'status': existing_task.status,
+            'url': existing_task.url,
+            'duplicate': True
+        })
+    
+    pending_task = Task.objects.create(
+        url=get_url,
+        status=Task.STATUS_PENDING,
+        idempotency_key=idempotency_key
     )
+    
+    
+    
+    messages.success(request, f'Task created! Scraping: {get_url[:50]}...')
+    scrape_url.delay(pending_task.pk)
+    return JsonResponse({
+        'id': pending_task.pk,
+        'status': pending_task.status,
+        'url': pending_task.url
+    })
+
 
 def user_task(request,pk):
     get_task_details = Task.objects.get(id = pk)

@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Async Scraper Dashboard</title>
+    <meta http-equiv="refresh" content="10">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .success { color: green; }
+        .failed { color: red; }
+        .pending { color: orange; }
+        .running { color: blue; }
+        form { margin: 20px 0; padding: 20px; background: #f0f0f0; border-radius: 5px; }
+        input[type="url"] { width: 300px; padding: 8px; margin-right: 10px; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Async Web Scraper</h1>
+    
+    <!-- Form to submit new URL -->
+    <form method="POST" action="{% url 'provide-data' %}">
+        {% csrf_token %}
+        <input type="url" name="API" placeholder="Enter URL to scrape (e.g., https://example.com)" required size="50">
+        <button type="submit">Scrape Now</button>
+    </form>
+    
+    <!-- Message after submission -->
+    {% if messages %}
+        {% for message in messages %}
+            <p style="color: green;">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    
+    <hr>
+    
+    <h2>Recent Scraping Tasks</h2>
+    
+    {% if previous_data %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID (short)</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Last Heartbeat</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in previous_data %}
+                <tr>
+                    <td>{{ task.id|slice:":8" }}...</td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">{{ task.url|truncatechars:50 }}</td>
+                    <td class="{% if task.status == 'COMPLETED' %}success{% elif task.status == 'FAILED' %}failed{% elif task.status == 'RUNNING' %}running{% else %}pending{% endif %}">
+                        {{ task.status }}
+                    </td>
+                    <td>{{ task.date_created|date:"H:i:s d/m/Y" }}</td>
+                    <td>{% if task.last_heartbeat %}{{ task.last_heartbeat|date:"H:i:s" }}{% else %}—{% endif %}</td>
+                    <td>
+                        {% if task.status == 'COMPLETED' and task.result %}
+                            <details>
+                                <summary>View Result</summary>
+                                <pre>Title: {{ task.result.title|default:"N/A" }}
+Links found: {{ task.result.link_counts|default:0 }}</pre>
+                            </details>
+                        {% elif task.status == 'FAILED' %}
+                            <span title="{{ task.error_field }}">Error</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No tasks yet. Submit a URL above!</p>
+    {% endif %}
+</body>
+</html>
