@@ -6,7 +6,7 @@ import time
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Q,F
-
+from task.services import scrape_url
 class Command(BaseCommand):
     help = 'A simple command that displays the current time' #
 
@@ -37,6 +37,8 @@ class Command(BaseCommand):
                                 self.stdout.write(f'Task reset: {task_.url} → PENDING (retry {task_.retry_count + 1}/{Task.MAX_RETRIES})')
                         # else:
                         #     self.stdout.write(f'Some Issue {i.url} Last heartbeat: {i.status}')
+                        #     re-queue the task into Redis so a Celery worker consumes it 
+                                scrape_url.delay(task_.id)
                             else:
                                 task_.mark_failed()
                 else:
