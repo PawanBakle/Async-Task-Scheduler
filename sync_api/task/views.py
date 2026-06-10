@@ -246,7 +246,9 @@ def get_data(request):
 #     )
 from django.shortcuts import redirect
 from django.contrib import messages
+import redis
 
+redis_client = redis.Redis(host='127.0.0.1', port=6379, db=0)
 def get_data(request):
     if request.method != 'POST':
         return JsonResponse({"error":"POST Required"},status=405)
@@ -258,7 +260,17 @@ def get_data(request):
     minute_bucket = timezone.now().replace(second=0, microsecond=0)
     key_string = f"{get_url}:{minute_bucket.isoformat()}"
     idempotency_key = hashlib.sha256(key_string.encode()).hexdigest()
-    
+    # Strip the time bucket entirely
+    # The signature is driven purely by the resource itself
+
+    # Minute bucket prevents duplicates within same minute
+# But allows re-scraping across minutes (fresh data)
+# Trade-off: tasks taking >1 minute may create duplicate on retry
+
+    # URL BASED KEY. issue here is that user cannot send or rescrape same url again
+    # key_string = f"global_url:{get_url}"
+    # idempotency_key = hashlib.sha256(key_string.encode()).hexdigest()
+
     # Check for existing task with same key
     existing_task = Task.objects.filter(idempotency_key=idempotency_key).first()
     if existing_task:
@@ -270,13 +282,16 @@ def get_data(request):
             'duplicate': True
         })
     
-    pending_task = Task.objects.create(
-        url=get_url,
-        status=Task.STATUS_PENDING,
-        idempotency_key=idempotency_key
-    )
+    # pending_task = Task.objects.create(
+    #     url=get_url,
+    #     status=Task.STATUS_PENDING,
+    #     idempotency_key=idempotency_key
+    # )
     
-    
+    pending_task, created = Task.objects.get_or_create(
+    idempotency_key=idempotency_key,
+    defaults={'url': get_url, 'status': Task.STATUS_PENDING}
+)
     
     messages.success(request, f'Task created! Scraping: {get_url[:50]}...')
     scrape_url.delay(pending_task.pk)
@@ -311,3 +326,11 @@ def show_page(request):
     error_field = models.TextField(null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
 '''
+
+     # though i need a user here for user based Hash GENERATION
+    # key_string = f"user_{request.user.id}:{get_url}"
+    # idempotency_key = hashlib.sha256(key_string.encode()).hexdigest()
+    # userid = request.user.id
+   
+    # redis_key = f"IdempotencyKey{IndentationError}"
+    # ttl = 86400
