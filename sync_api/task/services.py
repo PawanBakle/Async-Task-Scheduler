@@ -23,11 +23,16 @@ from django.db import transaction,connection, connections, close_old_connections
 '''
 
 
+logger = logging.getLogger(__name__)
+
+
 
 logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
 @shared_task(acks_late=True, max_retries=3, default_retry_delay=10, bind=True)
 def scrape_url(self, task_id):
-    # phase 1: Acquire the task (PENDING -> RUNNING) under OCC ---
+    #phase 1 Acquire the task (PENDING -> RUNNING) under OCC
     try:
         with transaction.atomic():
             task = Task.objects.get(pk=task_id)
@@ -47,7 +52,7 @@ def scrape_url(self, task_id):
     last_heartbeat = timezone.now()
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-    # Phase 2 Do the actual scraping work (RUNNING) ---
+    # phase 2 Do the actual scraping work (RUNNING) 
     try:
         if ',' in task.url:  # Check if there are multiple URLs
             urls = [u.strip() for u in task.url.split(',')]
@@ -80,12 +85,17 @@ def scrape_url(self, task_id):
             }
             task.save(update_fields=["result"])
 
-            # Heartbeat update
+            # Heartbeat update — guarded by status=RUNNING so a task that has
+            # already been reclaimed (e.g. by the reconciler) doesn't get its
+            # heartbeat refreshed by a worker that no longer truly owns it.
             if (timezone.now() - last_heartbeat).total_seconds() >= heartbeat_interval:
-                Task.objects.filter(pk=task.id).update(last_heartbeat=timezone.now())
+                Task.objects.filter(pk=task.id, status=Task.STATUS_RUNNING).update(
+                    last_heartbeat=timezone.now()
+                )
                 last_heartbeat = timezone.now()
 
-        # All URLs failed -> treat the whole task as a failure (goes to except below, eligible for retry like before). Partial success is NOT retried here.
+        # All URLs failed -> treat the whole task as a failure (goes to except below,
+        # eligible for retry like before). Partial success is NOT retried here.
         if failed_urls and not all_results:
             raise Exception(f"All {len(urls)} URLs failed")
 
@@ -99,7 +109,7 @@ def scrape_url(self, task_id):
             task.transition(Task.STATUS_RUNNING, Task.STATUS_FAILED)
             raise
 
-    # Phase 3 marked COMPLETED
+    # phase 3 Mark COMPLETED (
     with transaction.atomic():
         rows_affected = task.transition(Task.STATUS_RUNNING, Task.STATUS_COMPLETED)
         if rows_affected == 0:
