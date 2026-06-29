@@ -23,8 +23,8 @@ from django.db import transaction,connection, connections, close_old_connections
 '''
 
 
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 @shared_task(acks_late=True, max_retries=3, default_retry_delay=10, bind=True)
 def scrape_url(self, task_id):
     # phase 1: Acquire the task (PENDING -> RUNNING) under OCC ---
@@ -104,8 +104,6 @@ def scrape_url(self, task_id):
         rows_affected = task.transition(Task.STATUS_RUNNING, Task.STATUS_COMPLETED)
         if rows_affected == 0:
             raise RuntimeError("Task stolen by reconciler")
-
-# logger = logging.getLogger(__name__)
 
 # @shared_task(acks_late=True, max_retries=3, default_retry_delay=10, bind=True)
 # def scrape_url(self, task_id):
