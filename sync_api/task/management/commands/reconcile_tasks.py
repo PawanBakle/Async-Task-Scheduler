@@ -9,7 +9,7 @@ from django.db.models import Q,F
 from task.services import scrape_url
 
 
-
+'''new VERSION'''
 class Command(BaseCommand):
     help = 'A simple command that displays the current time'
 
@@ -48,7 +48,7 @@ class Command(BaseCommand):
                         )
                         scrape_url.delay(task_.id)
                     else:
-                        task_.mark_failed()
+                        task_.transition(Task.STATUS_RUNNING, Task.STATUS_FAILED, expected_version=task_.version)
             else:
                 self.stdout.write("No stuck tasks found...")
                 return
@@ -56,6 +56,8 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error: {e}"))
             return
+        
+'''OLD VERSION'''
 # class Command(BaseCommand):
 
     # help = 'A simple command that displays the current time' #
