@@ -48,7 +48,7 @@ Workers periodically update a heartbeat while making progress. A reconciler scan
 
 ## Architecture
 
-![Architecture Overview](diagrams/architecture_view.excalidraw.png)
+![Architecture Overview](sync_api/diagrams/architecture_view.excalidraw.png)
 
 ## State Machine
 
