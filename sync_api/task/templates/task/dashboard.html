@@ -20,14 +20,12 @@
 </head>
 <body>
     <h1>Async Web Scraper</h1>
-    
-    <!-- Form to submit new URL -->
     <form method="POST" action="{% url 'provide-data' %}">
         {% csrf_token %}
-        <input type="url" name="API" placeholder="Enter URL to scrape (e.g., https://example.com)" required size="50">
+        <textarea name="API" rows="3" cols="60" placeholder="Enter URLs separated by commas (e.g., https://example.com, https://url2.com)" required></textarea>
         <button type="submit">Scrape Now</button>
     </form>
-    
+        
     <!-- Message after submission -->
     {% if messages %}
         {% for message in messages %}
@@ -39,7 +37,7 @@
     
     <h2>Recent Scraping Tasks</h2>
     
-    {% if previous_data %}
+    {% if page_obj %}
         <table>
             <thead>
                 <tr>
@@ -52,26 +50,43 @@
                 </tr>
             </thead>
             <tbody>
-                {% for task in previous_data %}
+                {% for task in page_obj %}
                 <tr>
-                    <td>{{ task.id|slice:":8" }}...</td>
+                    <td><td>{{ task.id|stringformat:"s"|slice:":8" }}...</td>
                     <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">{{ task.url|truncatechars:50 }}</td>
                     <td class="{% if task.status == 'COMPLETED' %}success{% elif task.status == 'FAILED' %}failed{% elif task.status == 'RUNNING' %}running{% else %}pending{% endif %}">
                         {{ task.status }}
                     </td>
                     <td>{{ task.date_created|date:"H:i:s d/m/Y" }}</td>
-                    <td>{% if task.last_heartbeat %}{{ task.last_heartbeat|date:"H:i:s" }}{% else %}—{% endif %}</td>
+                    <td>{% if task.last_heartbeat %}{{ task.last_heartbeat|date:"H:i:s" }}{% else %}-{% endif %}</td>
                     <td>
-                        {% if task.status == 'COMPLETED' and task.result %}
+                        {% if task.result %}
                             <details>
-                                <summary>View Result</summary>
-                                <pre>Title: {{ task.result.title|default:"N/A" }}
-Links found: {{ task.result.link_counts|default:0 }}</pre>
+                                <summary>View results</summary>
+
+                                {% for item in task.result.succeeded %}
+                                    <p>
+                                        URL: {{ item.url }}<br>
+                                        Title: {{ item.title|default_if_none:"No title" }}<br>
+                                        Links found: {{ item.link_counts }}
+                                    </p>
+                                {% endfor %}
+
+                                {% for item in task.result.failed %}
+                                    <p class="failed">
+                                        URL: {{ item.url }}<br>
+                                        Error: {{ item.error }}
+                                    </p>
+                                {% endfor %}
                             </details>
-                        {% elif task.status == 'FAILED' %}
-                            <span title="{{ task.error_field }}">Error</span>
                         {% else %}
-                            —
+                            -
+                        {% endif %}
+
+                        {% if task.status == 'FAILED' %}
+                            <p class="failed">
+                                Task error: {{ task.error_field|default:"Unknown error" }}
+                            </p>
                         {% endif %}
                     </td>
                 </tr>
