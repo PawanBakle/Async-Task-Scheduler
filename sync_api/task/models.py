@@ -2,7 +2,8 @@ from django.db import models
 import uuid
 from django.utils import timezone
 # Create your models here.
-
+class LostOwnership(Exception):
+    pass
 class Task(models.Model):
     STATUS_PENDING = 'PENDING'
     STATUS_RUNNING = 'RUNNING'
@@ -39,55 +40,17 @@ class Task(models.Model):
         )
         
         if rows == 0:
-            raise RuntimeError("Illegal transition or stale version")
+            raise RuntimeError("illegal transition or stale version")
         
         self.status = to_state
         self.version += 1
         return rows
-    
-'''OLD VERSION OF MODELS'''
-    #     def mark_pending(self):
-    #     self.status = Task.STATUS_PENDING
-    #     self.save()
-    # def mark_running(self):
-    #     if self.status != Task.STATUS_PENDING:
-    #         raise ValueError("Invalid Transition")
-    #     self.status = Task.STATUS_RUNNING
-    #     self.last_heartbeat = timezone.now()
-    #     self.save()
-    # def mark_completed(self):
-    #     if self.status != Task.STATUS_RUNNING:
-    #         raise ValueError()
-    #     self.status = Task.STATUS_COMPLETED
-    #     self.last_heartbeat = timezone.now()
-    #     self.save()
-    # def mark_failed(self):
-    #     if self.status not in [self.STATUS_RUNNING, self.STATUS_PENDING]:
-    #         raise ValueError("Can only mark RUNNING or PENDING tasks as FAILED")
-    #     self.status = self.STATUS_FAILED
-    #     self.last_heartbeat = timezone.now()
-    #     self.save()
-
-    # def transition(self, from_state, to_state):
-    #     rows = Task.objects.filter(
-    #         pk=self.pk,
-    #         status=from_state
-    #     ).update(
-    #         status=to_state,
-    #         last_heartbeat=timezone.now()
-    #     )
-
-    #     if rows == 0:
-    #         raise RuntimeError(
-    #             f"Illegal or stolen transition {from_state} → {to_state}"
-    #         )
-
-    #     self.status = to_state
-    #     return rows
-
-
-# class Product(models.Model):
-#     name = models.CharField(max_length=100, help_text="Product name")
-#     stock_quantity = models.PositiveIntegerField(default=0, help_text="Current Number of stocks")
-#     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-#     created_at = models.DateTimeField(auto_now_add=True)
+    # to make sure 2 same workers don't workers over write in same states
+    def update_if_owner(self, owned_version, **fields):
+        rows = Task.objects.filter(
+            pk=self.pk,
+            status=Task.STATUS_RUNNING,
+            version=owned_version,
+        ).update(**fields)
+        if rows == 0:
+            raise LostOwnership(f"{self.pk}is no longer owned at version {owned_version}")
