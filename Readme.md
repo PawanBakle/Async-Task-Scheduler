@@ -1,3 +1,8 @@
+<p align="center">
+  <video src="./sync_api/diagrams/async_pr.mp4" width="100%" autoplay loop muted playsinline></video>
+</p>
+<p align="center"><em>Live demo: Asynchronous scraping, state tracking, and fault recovery.</em></p>
+
 ## Problem Statement
 
 Web scraping is an I/O-bound operation that can take several seconds to complete. Processing these requests inside the HTTP request blocks a web worker until the task finishes, reducing throughput and increasing client wait time.
