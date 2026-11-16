@@ -1,6 +1,9 @@
-<p align="center">
-  <video src="sync_api/diagrams/async_pr.mp4" width="100%" autoplay loop muted playsinline></video>
-</p>
+
+
+
+https://github.com/user-attachments/assets/6e604a25-b43e-4f20-80fa-f0682c074de0
+
+
 <p align="center"><em>Live demo: Asynchronous scraping, state tracking, and fault recovery.</em></p>
 
 ## Problem Statement
