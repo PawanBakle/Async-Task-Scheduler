@@ -1,5 +1,5 @@
 <p align="center">
-  <video src="./sync_api/diagrams/async_pr.mp4" width="100%" autoplay loop muted playsinline></video>
+  <video src="sync_api/diagrams/async_pr.mp4" width="100%" autoplay loop muted playsinline></video>
 </p>
 <p align="center"><em>Live demo: Asynchronous scraping, state tracking, and fault recovery.</em></p>
 
